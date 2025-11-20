@@ -1,0 +1,33 @@
+# 🛒 PuebloMarket - App estilo TooGoodToGo
+
+Aplicación web para que tiendas de pueblos puedan ofrecer sus productos en un mapa interactivo.
+
+## 🚀 Características
+
+- Mapa interactivo con tiendas locales
+- Sistema de roles (Comprador/Vendedor)
+- Chat en tiempo real entre usuarios
+- Subida de productos con imágenes
+- Panel de administración para vendedores
+- Interfaz responsive
+
+## 🛠️ Tecnologías
+
+**Frontend:**
+- React 18 + TypeScript
+- Tailwind CSS
+- Leaflet Maps
+- Vite
+
+**Backend:**
+- Node.js + Express + TypeScript
+- PostgreSQL
+- Redis
+- Socket.io
+- JWT Authentication
+
+## 📦 Instalación
+
+### Opción 1: Docker (Recomendado)
+```bash
+npm run docker:up
