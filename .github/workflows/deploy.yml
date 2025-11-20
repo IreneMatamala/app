@@ -1,13 +1,16 @@
-name: Deploy PuebloMarket
+name: Deploy to Azure
 
 on:
   push:
     branches: [ main ]
 
+env:
+  AZURE_RESOURCE_GROUP: pueblo-market-rg
+  AZURE_LOCATION: eastus
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    
     services:
       postgres:
         image: postgres:15
@@ -21,7 +24,6 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-
       redis:
         image: redis:7-alpine
         options: >-
@@ -34,23 +36,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: '**/package-lock.json'
     
     - name: Install dependencies
       run: |
         cd backend && npm ci
         cd ../frontend && npm ci
     
-    - name: Run backend tests
+    - name: Run tests
       run: |
-        cd backend
-        npm test
+        cd backend && npm test
+        cd ../frontend && npm test
       env:
         NODE_ENV: test
         DB_HOST: localhost
@@ -59,25 +59,57 @@ jobs:
         DB_USER: postgres
         DB_PASSWORD: password
         JWT_SECRET: test-secret
-    
-    - name: Run frontend tests
-      run: |
-        cd frontend
-        npm test
 
-  deploy:
+  deploy-infrastructure:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
     steps:
     - uses: actions/checkout@v3
     
-    - name: Deploy to production
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Create Resource Group
       run: |
-        echo "Deploying to production..."
-        # Add your deployment commands here
-        # For Railway:
-        # railway up
-        # For AWS:
-        # aws ecs update-service --cluster pueblo-market --service backend --force-new-deployment
+        az group create --name $AZURE_RESOURCE_GROUP --location $AZURE_LOCATION
+    
+    - name: Deploy Azure Database
+      run: |
+        az postgres flexible-server create \
+          --resource-group $AZURE_RESOURCE_GROUP \
+          --name pueblo-market-db \
+          --admin-user puebloadmin \
+          --admin-password ${{ secrets.DB_PASSWORD }} \
+          --sku-name Standard_B1ms \
+          --tier Burstable \
+          --public-access 0.0.0.0
+
+  deploy-backend:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Deploy to Azure Container Instances
+      run: |
+        az container create \
+          --resource-group $AZURE_RESOURCE_GROUP \
+          --name pueblo-market-backend \
+          --image your-registry.azurecr.io/pueblo-market-backend:latest \
+          --ports 5000 \
+          --environment-variables \
+            NODE_ENV=production \
+            DB_HOST=${{ secrets.DB_HOST }} \
+            DB_USER=${{ secrets.DB_USER }} \
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            JWT_SECRET=${{ secrets.JWT_SECRET }} \
+          --registry-login-server your-registry.azurecr.io \
+          --registry-username ${{ secrets.REGISTRY_USERNAME }} \
+          --registry-password ${{ secrets.REGISTRY_PASSWORD }}
