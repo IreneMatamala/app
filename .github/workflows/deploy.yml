@@ -5,8 +5,9 @@ on:
     branches: [ main ]
 
 env:
-  AZURE_RESOURCE_GROUP: pueblo-market-rg
-  AZURE_LOCATION: eastus
+  REGISTRY: ghcr.io
+  IMAGE_NAME_BACKEND: ${{ github.repository }}/pueblo-market-backend
+  IMAGE_NAME_FRONTEND: ${{ github.repository }}/pueblo-market-frontend
 
 jobs:
   test:
@@ -24,6 +25,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+
       redis:
         image: redis:7-alpine
         options: >-
@@ -36,21 +38,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
     
-    - name: Install dependencies
+    - name: Install backend dependencies
       run: |
-        cd backend && npm ci
-        cd ../frontend && npm ci
-    
-    - name: Run tests
+        cd backend
+        npm ci
+
+    - name: Install frontend dependencies  
       run: |
-        cd backend && npm test
-        cd ../frontend && npm test
+        cd frontend
+        npm ci
+
+    - name: Run backend tests
+      run: |
+        cd backend
+        npm run build
       env:
         NODE_ENV: test
         DB_HOST: localhost
@@ -60,56 +62,119 @@ jobs:
         DB_PASSWORD: password
         JWT_SECRET: test-secret
 
-  deploy-infrastructure:
+    - name: Run frontend build
+      run: |
+        cd frontend
+        npm run build
+
+  build-and-push:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Azure Login
-      uses: azure/login@v1
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-    
-    - name: Create Resource Group
-      run: |
-        az group create --name $AZURE_RESOURCE_GROUP --location $AZURE_LOCATION
-    
-    - name: Deploy Azure Database
-      run: |
-        az postgres flexible-server create \
-          --resource-group $AZURE_RESOURCE_GROUP \
-          --name pueblo-market-db \
-          --admin-user puebloadmin \
-          --admin-password ${{ secrets.DB_PASSWORD }} \
-          --sku-name Standard_B1ms \
-          --tier Burstable \
-          --public-access 0.0.0.0
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
 
   deploy-backend:
-    needs: deploy-infrastructure
+    needs: build-and-push
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+    environment: production
     
+    steps:
     - name: Azure Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    
+
     - name: Deploy to Azure Container Instances
       run: |
         az container create \
-          --resource-group $AZURE_RESOURCE_GROUP \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
           --name pueblo-market-backend \
-          --image your-registry.azurecr.io/pueblo-market-backend:latest \
+          --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:latest \
           --ports 5000 \
           --environment-variables \
             NODE_ENV=production \
+            PORT=5000 \
+            JWT_SECRET=${{ secrets.JWT_SECRET }} \
             DB_HOST=${{ secrets.DB_HOST }} \
+            DB_PORT=${{ secrets.DB_PORT }} \
+            DB_NAME=${{ secrets.DB_NAME }} \
             DB_USER=${{ secrets.DB_USER }} \
             DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-            JWT_SECRET=${{ secrets.JWT_SECRET }} \
-          --registry-login-server your-registry.azurecr.io \
-          --registry-username ${{ secrets.REGISTRY_USERNAME }} \
-          --registry-password ${{ secrets.REGISTRY_PASSWORD }}
+            REDIS_URL=${{ secrets.REDIS_URL }} \
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }} \
+          --registry-login-server ${{ env.REGISTRY }} \
+          --registry-username ${{ github.actor }} \
+          --registry-password ${{ secrets.GITHUB_TOKEN }} \
+          --ip-address Public
+
+    - name: Get backend public IP
+      run: |
+        az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-backend \
+          --query "ipAddress.ip" \
+          --output tsv
+
+  deploy-frontend:
+    needs: [build-and-push, deploy-backend]
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Container Instances
+      run: |
+        az container create \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-frontend \
+          --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:latest \
+          --ports 80 \
+          --environment-variables \
+            VITE_API_URL=${{ secrets.BACKEND_URL }} \
+          --registry-login-server ${{ env.REGISTRY }} \
+          --registry-username ${{ github.actor }} \
+          --registry-password ${{ secrets.GITHUB_TOKEN }} \
+          --ip-address Public
+
+    - name: Get frontend public IP
+      run: |
+        az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-frontend \
+          --query "ipAddress.ip" \
+          --output tsv
