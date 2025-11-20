@@ -1,11 +1,14 @@
+
 import { Pool } from 'pg';
+import { createClient } from 'redis';
 
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'pueblo_market',
-  password: process.env.DB_PASSWORD || 'password',
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT || '5432'),
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 export const connectDB = async () => {
@@ -13,11 +16,30 @@ export const connectDB = async () => {
     const client = await pool.connect();
     console.log('✅ PostgreSQL connected successfully');
     client.release();
-    
-    // Create tables if they don't exist
     await createTables();
   } catch (error) {
     console.error('❌ Database connection error:', error);
+    throw error;
+  }
+};
+
+export const connectRedis = async () => {
+  try {
+    const redisClient = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        tls: process.env.REDIS_TLS === 'true',
+        rejectUnauthorized: false
+      }
+    });
+
+    redisClient.on('error', (err) => console.log('Redis Client Error', err));
+    
+    await redisClient.connect();
+    console.log('✅ Redis connected successfully');
+    return redisClient;
+  } catch (error) {
+    console.error('❌ Redis connection error:', error);
     throw error;
   }
 };
@@ -26,7 +48,6 @@ const createTables = async () => {
   const client = await pool.connect();
   
   try {
-    // Users table
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -38,7 +59,6 @@ const createTables = async () => {
       )
     `);
 
-    // Stores table
     await client.query(`
       CREATE TABLE IF NOT EXISTS stores (
         id SERIAL PRIMARY KEY,
@@ -52,7 +72,6 @@ const createTables = async () => {
       )
     `);
 
-    // Products table
     await client.query(`
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
@@ -66,7 +85,6 @@ const createTables = async () => {
       )
     `);
 
-    // Chat rooms table
     await client.query(`
       CREATE TABLE IF NOT EXISTS chat_rooms (
         id SERIAL PRIMARY KEY,
@@ -77,7 +95,6 @@ const createTables = async () => {
       )
     `);
 
-    // Messages table
     await client.query(`
       CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
