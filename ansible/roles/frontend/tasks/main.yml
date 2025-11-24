@@ -1,0 +1,26 @@
+---
+- name: Pull frontend Docker image
+  docker_image:
+    name: "{{ frontend_image }}"
+    source: pull
+
+- name: Create frontend container
+  docker_container:
+    name: "pueblo-market-frontend"
+    image: "{{ frontend_image }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "80:80"
+    env:
+      VITE_API_URL: "{{ backend_url }}"
+      VITE_APP_NAME: "PuebloMarket"
+    networks:
+      - name: pueblo-network
+
+- name: Wait for frontend to be ready
+  wait_for:
+    host: "{{ ansible_host }}"
+    port: 80
+    delay: 10
+    timeout: 60
