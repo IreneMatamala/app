@@ -1,0 +1,49 @@
+---
+- name: Create Azure Infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars_files:
+    - "../group_vars/all/vars.yml"
+
+  tasks:
+    - name: Create resource group
+      azure_rm_resourcegroup:
+        name: "{{ azure_resource_group }}"
+        location: "{{ azure_location }}"
+        subscription_id: "{{ azure_subscription_id }}"
+
+    - name: Create PostgreSQL server
+      azure_rm_postgresqlserver:
+        resource_group: "{{ azure_resource_group }}"
+        name: "pueblo-market-db"
+        sku:
+          name: "Standard_B1ms"
+          tier: "Burstable"
+        storage_mb: 32768
+        admin_username: "{{ db_user }}"
+        admin_password: "{{ db_password }}"
+        version: "14"
+        ssl_enforcement: "Enabled"
+        location: "{{ azure_location }}"
+        subscription_id: "{{ azure_subscription_id }}"
+
+    - name: Create Redis cache
+      azure_rm_rediscache:
+        resource_group: "{{ azure_resource_group }}"
+        name: "pueblo-market-redis"
+        location: "{{ azure_location }}"
+        sku:
+          name: "Basic"
+          size: "C0"
+        enable_non_ssl_port: false
+        subscription_id: "{{ azure_subscription_id }}"
+
+    - name: Create container registry
+      azure_rm_containerregistry:
+        resource_group: "{{ azure_resource_group }}"
+        name: "pueblomarketacr"
+        location: "{{ azure_location }}"
+        sku: "Basic"
+        admin_user_enabled: true
+        subscription_id: "{{ azure_subscription_id }}"
