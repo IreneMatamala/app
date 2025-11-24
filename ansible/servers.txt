@@ -1,0 +1,14 @@
+# Este archivo es como una "AGENDA DE SERVIDORES"
+# Le dice a Ansible en qué máquinas debe trabajar
+
+[webservers]
+# Aquí se pone las IPs de los serviores reales
+# Por ahora uso "localhost" para practicar
+localhost ansible_connection=local
+
+[databases]
+localhost ansible_connection=local
+
+[all:vars]
+# Configuración básica para todos los servidores
+ansible_python_interpreter=/usr/bin/python3
