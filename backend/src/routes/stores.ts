@@ -5,7 +5,7 @@ import { pool } from '../config/database';
 const router = express.Router();
 
 // Get all stores
-router.get('/', async (req, res) => {
+router.get('/', async (req: express.Request, res: express.Response) => {
   try {
     const result = await pool.query(`
       SELECT s.*, u.name as owner_name 
@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get store by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: express.Request, res: express.Response) => {
   try {
     const { id } = req.params;
     const result = await pool.query(`
@@ -43,10 +43,10 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create or update store (seller only)
-router.post('/', sellerAuth, async (req: any, res) => {
+router.post('/', sellerAuth, async (req: express.Request, res: express.Response) => {
   try {
     const { name, description, latitude, longitude, address } = req.body;
-    const userId = req.user.userId;
+    const userId = (req as any).user.userId;
 
     // Check if store already exists for this user
     const existingStore = await pool.query(
