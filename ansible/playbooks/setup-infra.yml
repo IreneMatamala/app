@@ -1,5 +1,12 @@
 # Este archivo transforma una MÁQUINA VACÍA en un servidor listo para la app, como suelo hacer usos de MV de azure para desplegar,
 necesito un playbook que me instale todo desde cero
+# En Azure/AWS/DigitalOcean crea una VM Ubuntu 22.04, Asegúrate de tener acceso SSH
+# 1: Configurar conexión, Editar servers.txt con tu IP real: nano ansible/servers.txt
+# Probar conexión: ansible all -m ping -i servers.txt  
+# 2: Ejecutar instalación: ansible-playbook setup-infra.yml -i servers.txt
+# 3: Verificar instalación Conectarte a la VM y probar manualmente: ssh ubuntu@TU_IP
+# Probar Docker: docker run hello-world
+# Probar Node.js: node --version
 
 ---
 - name:  Instalar TODO para PuebloMarket en máquina virgen
