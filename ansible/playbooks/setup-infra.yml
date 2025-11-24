@@ -1,0 +1,175 @@
+# Este archivo transforma una MÁQUINA VACÍA en un servidor listo para la app, como suelo hacer usos de MV de azure para desplegar,
+necesito un playbook que me instale todo desde cero
+
+---
+- name:  Instalar TODO para PuebloMarket en máquina virgen
+  hosts: all
+  become: yes  # Ejecutar como administrador (sudo)
+  
+  tasks:
+    # ============================================
+    # 1. ACTUALIZAR SISTEMA BASE
+    # ============================================
+    - name: Actualizar lista de paquetes del sistema
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name:  Actualizar sistema operativo
+      apt:
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name:  Limpiar paquetes innecesarios
+      apt:
+        autoremove: yes
+        autoclean: yes
+      when: ansible_os_family == "Debian"
+
+    # ============================================
+    # 2. INSTALAR HERRAMIENTAS BÁSICAS
+    # ============================================
+    - name:  Instalar herramientas esenciales
+      apt:
+        name:
+          - curl          # Para descargar cosas de internet
+          - wget          # Otra forma de descargar
+          - git           # Para clonar repositorios
+          - vim           # Editor de texto en terminal
+          - htop          # Monitor del sistema
+          - tree          # Ver carpetas en árbol
+          - unzip         # Descomprimir archivos
+          - software-properties-common  # Para agregar repositorios
+        state: present
+      when: ansible_os_family == "Debian"
+
+    # ============================================
+    # 3. INSTALAR DOCKER (Para contenedores)
+    # ============================================
+    - name:  Agregar clave GPG oficial de Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name:  Agregar repositorio de Docker
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name:  Instalar Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        update_cache: yes
+        state: present
+
+    - name: 🔧 Iniciar servicio de Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name:  Agregar usuario actual al grupo Docker
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    # ============================================
+    # 4. INSTALAR DOCKER COMPOSE
+    # ============================================
+    - name: Descargar Docker Compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'  # Hacer ejecutable
+
+    # ============================================
+    # 5. INSTALAR NODE.JS (Por si acaso)
+    # ============================================
+    - name: Agregar repositorio de Node.js
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+      args:
+        warn: false  # Ignorar warnings
+
+    - name: Instalar Node.js y npm
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    # ============================================
+    # 6. CONFIGURAR FIREWALL (Seguridad básica)
+    # ============================================
+    - name: Instalar UFW (firewall simple)
+      apt:
+        name: ufw
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Configurar reglas del firewall
+      ufw:
+        rule: "{{ item.rule }}"
+        port: "{{ item.port }}"
+        proto: "{{ item.proto | default('tcp') }}"
+      loop:
+        - { rule: allow, port: '22', comment: 'SSH' }
+        - { rule: allow, port: '80', comment: 'HTTP' }
+        - { rule: allow, port: '443', comment: 'HTTPS' }
+        - { rule: allow, port: '5000', comment: 'Backend API' }
+      when: ansible_os_family == "Debian"
+
+    - name: 🚀 Activar firewall
+      ufw:
+        state: enabled
+      when: ansible_os_family == "Debian"
+
+    # ============================================
+    # 7. VERIFICAR QUE TODO FUNCIONA
+    # ============================================
+    - name: ✅ Verificar que Docker funciona
+      command: docker --version
+      register: docker_result
+      changed_when: false  # Solo verificar, no cambiar nada
+
+    - name: ✅ Verificar que Docker Compose funciona
+      command: docker-compose --version
+      register: compose_result
+      changed_when: false
+
+    - name: ✅ Verificar que Node.js funciona
+      command: node --version
+      register: node_result
+      changed_when: false
+
+    - name: ✅ Verificar que npm funciona
+      command: npm --version
+      register: npm_result
+      changed_when: false
+
+    # ============================================
+    # 8. MENSAJE FINAL
+    # ============================================
+    - name:  ¡Instalación completada!
+      debug:
+        msg: |
+           ¡MÁQUINA LISTA PARA PUEBLOMARKET!
+          
+           Software instalado:
+          - Docker: {{ docker_result.stdout }}
+          - Docker Compose: {{ compose_result.stdout }}
+          - Node.js: {{ node_result.stdout }}
+          - npm: {{ npm_result.stdout }}
+          
+           Puertos abiertos:
+          - 22 (SSH), 80 (HTTP), 443 (HTTPS), 5000 (API)
+          
+           Próximo paso:
+          Ejecuta: ansible-playbook deploy-app.yml
+          
+           Para probar manualmente:
+          docker run hello-world
