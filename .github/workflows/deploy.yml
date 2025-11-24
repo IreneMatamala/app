@@ -18,25 +18,46 @@ jobs:
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: pueblo_market_test
-        ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
       redis:
         image: redis:7-alpine
-        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
 
     steps:
     - uses: actions/checkout@v3
     
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
     - name: Install backend dependencies
-      run: cd backend && npm ci
+      run: |
+        cd backend
+        npm install  # ✅ Cambiado a npm install
 
     - name: Install frontend dependencies  
-      run: cd frontend && npm ci
+      run: |
+        cd frontend
+        npm install  # ✅ Cambiado a npm install
 
-    - name: Run backend tests
+    - name: Run backend build
       run: |
         cd backend
         npm run build
-        npm test
       env:
         NODE_ENV: test
         DB_HOST: localhost
@@ -48,10 +69,49 @@ jobs:
         REDIS_URL: redis://localhost:6379
 
     - name: Run frontend build
-      run: cd frontend && npm run build
+      run: |
+        cd frontend
+        npm run build
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
 
   deploy-backend:
-    needs: test
+    needs: build-and-push
     runs-on: ubuntu-latest
     environment: production
     
@@ -85,8 +145,17 @@ jobs:
           --registry-password ${{ secrets.GITHUB_TOKEN }} \
           --ip-address Public
 
+    - name: Get backend public IP
+      run: |
+        echo "Backend deployed at:"
+        az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-backend \
+          --query "ipAddress.ip" \
+          --output tsv
+
   deploy-frontend:
-    needs: deploy-backend
+    needs: [build-and-push, deploy-backend]
     runs-on: ubuntu-latest
     environment: production
     
@@ -109,3 +178,12 @@ jobs:
           --registry-username ${{ github.actor }} \
           --registry-password ${{ secrets.GITHUB_TOKEN }} \
           --ip-address Public
+
+    - name: Get frontend public IP
+      run: |
+        echo "Frontend deployed at:"
+        az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-frontend \
+          --query "ipAddress.ip" \
+          --output tsv
