@@ -1,0 +1,63 @@
+# Este archivo DESPLIEGA la aplicación
+# Descarga las imágenes y ejecuta los contenedores
+---
+- name: 🚀 Desplegar PuebloMarket
+  hosts: webservers
+  become: yes
+  
+  tasks:
+    - name:  Descargar imagen del backend
+      docker_image:
+        name: ghcr.io/tu-usuario/pueblo-market-backend:latest
+        source: pull
+
+    - name:  Descargar imagen del frontend
+      docker_image:
+        name: ghcr.io/tu-usuario/pueblo-market-frontend:latest
+        source: pull
+
+    - name:  Ejecutar contenedor del backend
+      docker_container:
+        name: pueblo-backend
+        image: ghcr.io/tu-usuario/pueblo-market-backend:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "5000:5000"
+        env:
+          NODE_ENV: "production"
+          PORT: "5000"
+
+    - name:  Ejecutar contenedor del frontend
+      docker_container:
+        name: pueblo-frontend
+        image: ghcr.io/tu-usuario/pueblo-market-frontend:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "80:80"
+
+    - name:  Esperar a que el backend esté listo
+      wait_for:
+        port: 5000
+        host: "{{ ansible_host }}"
+        delay: 5
+        timeout: 60
+
+    - name:  Esperar a que el frontend esté listo
+      wait_for:
+        port: 80
+        host: "{{ ansible_host }}"
+        delay: 5
+        timeout: 60
+
+    - name:  Despliegue completado
+      debug:
+        msg: |
+          ¡PuebloMarket desplegado correctamente!
+          
+          Frontend: http://{{ ansible_host }}
+          Backend: http://{{ ansible_host }}:5000
+          Health Check: http://{{ ansible_host }}:5000/api/health
+          
+          💡 Para ver los logs: docker logs pueblo-backend
