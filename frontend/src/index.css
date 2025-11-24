@@ -1,15 +1,14 @@
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-.leaflet-container {
-  height: 400px;
-  width: 100%;
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
 }
 
-@media (min-width: 768px) {
-  .leaflet-container {
-    height: 500px;
-  }
+a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
