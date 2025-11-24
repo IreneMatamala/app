@@ -1,4 +1,4 @@
-#Lista todas las librerías que necesita tu backend. Cuando ejecutas npm install, descarga todo automáticamente.
+//Lista todas las librerías que necesita tu backend. Cuando ejecutas npm install, descarga todo automáticamente.
 {
   "name": "pueblo-market-backend",
   "version": "1.0.0",
