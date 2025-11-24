@@ -7,6 +7,6 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
-    "_comentario": "Configura TypeScript para que sepa cómo convertir tu código TypeScript a JavaScript que Node.js pueda entender."
+     // "Configura TypeScript para que sepa cómo convertir tu código TypeScript a JavaScript que Node.js pueda entender."
   }
 }
