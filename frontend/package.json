@@ -1,4 +1,5 @@
 {
+  "_comentario": "Lista todas las librerías que necesita tu frontend React."
   "name": "pueblo-market-frontend",
   "version": "1.0.0",
   "scripts": {
@@ -21,4 +22,4 @@
   }
  
 }
-  // "Lista todas las librerías que necesita tu frontend React."
+  
