@@ -1,0 +1,32 @@
+# Este archivo ELIMINA todo lo desplegado
+# Útil para limpiar o empezar de cero
+---
+- name:  Limpiar despliegue de PuebloMarket
+  hosts: webservers
+  become: yes
+  
+  tasks:
+    - name:  Detener contenedor del backend
+      docker_container:
+        name: pueblo-backend
+        state: absent
+
+    - name:  Detener contenedor del frontend
+      docker_container:
+        name: pueblo-frontend
+        state: absent
+
+    - name:  Eliminar imágenes de Docker
+      docker_image:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - ghcr.io/tu-usuario/pueblo-market-backend:latest
+        - ghcr.io/tu-usuario/pueblo-market-frontend:latest
+
+    - name:  Limpieza completada
+      debug:
+        msg: |
+           ¡Todo limpiado correctamente!
+           Para volver a desplegar ejecuta:
+          ansible-playbook deploy-app.yml
