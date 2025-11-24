@@ -7,10 +7,10 @@ const router = express.Router();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     cb(null, 'uploads/');
   },
-  filename: (req, file, cb) => {
+  filename: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     cb(null, Date.now() + '-' + file.originalname);
   }
 });
@@ -18,7 +18,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Get products by store
-router.get('/store/:storeId', async (req, res) => {
+router.get('/store/:storeId', async (req: express.Request, res: express.Response) => {
   try {
     const { storeId } = req.params;
     const result = await pool.query(
@@ -33,10 +33,10 @@ router.get('/store/:storeId', async (req, res) => {
 });
 
 // Add product (seller only)
-router.post('/', sellerAuth, upload.single('image'), async (req: any, res) => {
+router.post('/', sellerAuth, upload.single('image'), async (req: express.Request, res: express.Response) => {
   try {
     const { name, description, price, storeId } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const imageUrl = (req as any).file ? `/uploads/${(req as any).file.filename}` : null;
 
     const result = await pool.query(
       `INSERT INTO products (store_id, name, description, price, image_url) 
@@ -52,7 +52,7 @@ router.post('/', sellerAuth, upload.single('image'), async (req: any, res) => {
 });
 
 // Delete product (seller only)
-router.delete('/:id', sellerAuth, async (req: any, res) => {
+router.delete('/:id', sellerAuth, async (req: express.Request, res: express.Response) => {
   try {
     const { id } = req.params;
     
