@@ -1,0 +1,10 @@
+---
+# Ejemplo para encriptar con: ansible-vault encrypt vault.yml
+vault_jwt_secret: "tu-jwt-secret-super-seguro-ansible"
+vault_db_password: "TuPasswordPostgreSQL123!"
+vault_redis_password: "TuRedisPassword123!"
+azure_client_id: "your-client-id"
+azure_client_secret: "your-client-secret"
+azure_tenant_id: "your-tenant-id"
+azure_subscription_id: "your-subscription-id"
+github_username: "tu-usuario-github"
