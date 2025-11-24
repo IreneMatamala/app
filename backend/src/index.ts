@@ -7,7 +7,7 @@ import authRoutes from './routes/auth';
 import storeRoutes from './routes/stores';
 import productRoutes from './routes/products';
 import chatRoutes from './routes/chat';
-import { connectDB } from './config/database';
+import { connectDB, connectRedis } from './config/database';
 import { socketHandler } from './sockets/chat';
 import { config } from './config/env';
 
@@ -56,13 +56,16 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-connectDB().then(() => {
-  httpServer.listen(config.PORT, () => {
-    console.log(`🚀 Server running on port ${config.PORT}`);
-    console.log(`🌍 Environment: ${config.NODE_ENV}`);
-    console.log(`🔗 Frontend URL: ${config.FRONTEND_URL}`);
+// Conectar a BD y Redis, luego iniciar servidor
+Promise.all([connectDB(), connectRedis()])
+  .then(() => {
+    httpServer.listen(config.PORT, () => {
+      console.log(`Server running on port ${config.PORT}`);
+      console.log(`Environment: ${config.NODE_ENV}`);
+      console.log(`Frontend URL: ${config.FRONTEND_URL}`);
+    });
+  })
+  .catch(error => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
   });
-}).catch(error => {
-  console.error('Database connection failed:', error);
-  process.exit(1);
-});
