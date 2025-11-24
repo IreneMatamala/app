@@ -12,7 +12,7 @@ router.post('/register', [
   body('password').isLength({ min: 6 }),
   body('name').notEmpty().trim(),
   body('role').isIn(['buyer', 'seller'])
-], async (req, res) => {
+], async (req: express.Request, res: express.Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -67,7 +67,7 @@ router.post('/register', [
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').exists()
-], async (req, res) => {
+], async (req: express.Request, res: express.Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
