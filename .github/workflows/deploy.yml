@@ -47,12 +47,12 @@ jobs:
     - name: Install backend dependencies
       run: |
         cd backend
-        npm install  # ✅ Cambiado a npm install
+        npm install
 
     - name: Install frontend dependencies  
       run: |
         cd frontend
-        npm install  # ✅ Cambiado a npm install
+        npm install
 
     - name: Run backend build
       run: |
@@ -154,8 +154,20 @@ jobs:
           --query "ipAddress.ip" \
           --output tsv
 
+    - name: Update backend URL secret
+      run: |
+        BACKEND_IP=$(az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-backend \
+          --query "ipAddress.ip" \
+          --output tsv)
+        
+        echo "Backend IP: $BACKEND_IP"
+        # En producción, deberías usar un DNS real en lugar de IP
+        echo "BACKEND_URL=http://$BACKEND_IP:5000" >> $GITHUB_ENV
+
   deploy-frontend:
-    needs: [build-and-push, deploy-backend]
+    needs: deploy-backend
     runs-on: ubuntu-latest
     environment: production
     
@@ -165,6 +177,16 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Get backend IP for frontend
+      run: |
+        BACKEND_IP=$(az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-backend \
+          --query "ipAddress.ip" \
+          --output tsv)
+        
+        echo "BACKEND_URL=http://$BACKEND_IP:5000" >> $GITHUB_ENV
+
     - name: Deploy to Azure Container Instances
       run: |
         az container create \
@@ -173,7 +195,8 @@ jobs:
           --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:latest \
           --ports 80 \
           --environment-variables \
-            VITE_API_URL=${{ secrets.BACKEND_URL }} \
+            VITE_API_URL=$BACKEND_URL \
+            VITE_APP_NAME=PuebloMarket \
           --registry-login-server ${{ env.REGISTRY }} \
           --registry-username ${{ github.actor }} \
           --registry-password ${{ secrets.GITHUB_TOKEN }} \
@@ -187,3 +210,56 @@ jobs:
           --name pueblo-market-frontend \
           --query "ipAddress.ip" \
           --output tsv
+
+  health-check:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Check backend health
+      run: |
+        BACKEND_IP=$(az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-backend \
+          --query "ipAddress.ip" \
+          --output tsv)
+        
+        echo "Checking backend health at: http://$BACKEND_IP:5000/api/health"
+        curl -f http://$BACKEND_IP:5000/api/health || exit 1
+
+    - name: Check frontend accessibility
+      run: |
+        FRONTEND_IP=$(az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-frontend \
+          --query "ipAddress.ip" \
+          --output tsv)
+        
+        echo "Checking frontend at: http://$FRONTEND_IP"
+        curl -f http://$FRONTEND_IP || exit 1
+
+    - name: Print deployment summary
+      run: |
+        BACKEND_IP=$(az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-backend \
+          --query "ipAddress.ip" \
+          --output tsv)
+        
+        FRONTEND_IP=$(az container show \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name pueblo-market-frontend \
+          --query "ipAddress.ip" \
+          --output tsv)
+        
+        echo "🚀 DEPLOYMENT SUCCESSFUL!"
+        echo "=========================="
+        echo "🌐 Frontend URL: http://$FRONTEND_IP"
+        echo "🔧 Backend URL: http://$BACKEND_IP:5000"
+        echo "📊 Backend Health: http://$BACKEND_IP:5000/api/health"
+        echo ""
+        echo "📝 Next steps:"
+        echo "1. Configure DNS for your domains"
+        echo "2. Set up SSL certificates"
+        echo "3. Update FRONTEND_URL and BACKEND_URL secrets with actual domains"
