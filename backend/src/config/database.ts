@@ -1,4 +1,3 @@
-
 import { Pool } from 'pg';
 import { createClient } from 'redis';
 
@@ -14,11 +13,11 @@ const pool = new Pool({
 export const connectDB = async () => {
   try {
     const client = await pool.connect();
-    console.log('✅ PostgreSQL connected successfully');
+    console.log('PostgreSQL connected successfully');
     client.release();
     await createTables();
   } catch (error) {
-    console.error('❌ Database connection error:', error);
+    console.error('Database connection error:', error);
     throw error;
   }
 };
@@ -36,10 +35,10 @@ export const connectRedis = async () => {
     redisClient.on('error', (err) => console.log('Redis Client Error', err));
     
     await redisClient.connect();
-    console.log('✅ Redis connected successfully');
+    console.log('Redis connected successfully');
     return redisClient;
   } catch (error) {
-    console.error('❌ Redis connection error:', error);
+    console.error('Redis connection error:', error);
     throw error;
   }
 };
@@ -105,7 +104,7 @@ const createTables = async () => {
       )
     `);
 
-    console.log('✅ Database tables created/verified');
+    console.log('Database tables created/verified');
   } finally {
     client.release();
   }
