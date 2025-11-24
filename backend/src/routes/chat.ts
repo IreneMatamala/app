@@ -5,14 +5,14 @@ import { pool } from '../config/database';
 const router = express.Router();
 
 // Get chat rooms for user
-router.get('/rooms', auth, async (req: any, res) => {
+router.get('/rooms', auth, async (req: express.Request, res: express.Response) => {
   try {
-    const userId = req.user.userId;
+    const userId = (req as any).user.userId;
     
     let query = '';
     let params = [userId];
 
-    if (req.user.role === 'seller') {
+    if ((req as any).user.role === 'seller') {
       query = `
         SELECT cr.*, u.name as buyer_name, s.name as store_name
         FROM chat_rooms cr
@@ -41,7 +41,7 @@ router.get('/rooms', auth, async (req: any, res) => {
 });
 
 // Get messages for a chat room
-router.get('/rooms/:roomId/messages', auth, async (req: any, res) => {
+router.get('/rooms/:roomId/messages', auth, async (req: express.Request, res: express.Response) => {
   try {
     const { roomId } = req.params;
     
@@ -62,10 +62,10 @@ router.get('/rooms/:roomId/messages', auth, async (req: any, res) => {
 });
 
 // Create or get chat room
-router.post('/rooms', auth, async (req: any, res) => {
+router.post('/rooms', auth, async (req: express.Request, res: express.Response) => {
   try {
     const { storeId } = req.body;
-    const buyerId = req.user.userId;
+    const buyerId = (req as any).user.userId;
 
     // Check if room already exists
     let result = await pool.query(
