@@ -26,8 +26,5 @@ Aplicación web para que tiendas de pueblos puedan ofrecer sus productos en un m
 - Socket.io
 - JWT Authentication
 
-## 📦 Instalación
-
-### Opción 1: Docker (Recomendado)
-```bash
-npm run docker:up
+## 📦 Comentarios
+En cada archivo hare un pequeño comentario sobre el uso de cada archivo y por qué se utiliza. Aunque es una versión de prueba para aprender espero que les gusten y me den feedback.
