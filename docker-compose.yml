@@ -1,4 +1,4 @@
-# Este archivo permite EJECUTAR TODA LA APP 
+# Este archivo permite EJECUTAR TODA LA APP , crea contenedores con la base de datos, backend y frontend listos para usar.
 # Con: "docker-compose up" ya funciona todo
 version: '3.8'
 
