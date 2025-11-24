@@ -1,6 +1,9 @@
+# Este archivo permite EJECUTAR TODA LA APP 
+# Con: "docker-compose up" ya funciona todo
 version: '3.8'
 
 services:
+  # Base de datos PostgreSQL
   postgres:
     image: postgres:15
     environment:
@@ -11,50 +14,37 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - pueblo-network
 
+  # Cache Redis
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    networks:
-      - pueblo-network
 
+  # Backend API
   backend:
     build: ./backend
     ports:
       - "5000:5000"
     environment:
-      - NODE_ENV=development
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=pueblo_market
       - DB_USER=postgres
       - DB_PASSWORD=password
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
-      - FRONTEND_URL=http://localhost:3000
+      - JWT_SECRET=secret-local
     depends_on:
       - postgres
       - redis
-    volumes:
-      - ./backend/uploads:/app/uploads
-    networks:
-      - pueblo-network
 
+  # Frontend React
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
     depends_on:
       - backend
-    networks:
-      - pueblo-network
 
 volumes:
   postgres_data:
-
-networks:
-  pueblo-network:
-    driver: bridge
