@@ -1,0 +1,11 @@
+---
+# Production-specific variables
+environment: "production"
+backend_url: "https://api.pueblomarket.com"
+frontend_url: "https://pueblomarket.com"
+
+# Scale settings
+backend_replicas: 2
+frontend_replicas: 2
+database_sku: "Standard_B2s"
+redis_sku: "Standard"
