@@ -1,0 +1,44 @@
+# Este archivo CREA LA INFRAESTRUCTURA básica
+# Como un "script de construcción" para la app
+---
+- name:  Configurar infraestructura básica para PuebloMarket
+  hosts: all
+  become: yes  # Esto significa "ejecutar como administrador"
+  
+  tasks:
+    - name:  Actualizar lista de paquetes
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name:  Instalar Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name:  Instalar Docker Compose
+      pip:
+        name: docker-compose
+        state: present
+
+    - name:  Asegurar que Docker esté ejecutándose
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name:  Verificar que Docker funciona
+      command: docker --version
+      register: docker_version
+      
+    - name:  Mostrar versión de Docker instalada
+      debug:
+        msg: "Docker instalado: {{ docker_version.stdout }}"
+
+    - name:  Infraestructura lista
+      debug:
+        msg: |
+           ¡Infraestructura configurada correctamente!
+          Próximo paso: Ejecutar 'ansible-playbook deploy-app.yml'
